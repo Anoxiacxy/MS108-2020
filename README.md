@@ -6,24 +6,27 @@
 
 ```
 |--docs/
-|  |--YPU/				A demo-use simplified 5-stage pipelined CPU
-|  |--vivadoDemo.pdf	A demo about how to create a project in Vivado
+|  |--YPU/              A demo-use simplified 5-stage pipelined CPU
+|  |--vivadoDemo.pdf    A demo about how to create a project in Vivado
 |--riscv/
-|  |--ctrl/				Interface with FPGA
-|  |--sim/				Testbench, add to Vivado project only in simulation
-|  |--src/				Where your code should be
-|  |  |--common/				Provided UART and RAM
-|  |  |--Basys-3-Master.xdc		constraint file
-|  |  |--cpu.v					Fill it. 
-|  |  |--hci.v					A bus between UART/RAM and CPU
-|  |  |--ram.v					RAM
-|  |  |--riscv_top.v			Top design
-|  |--sys/				Help compile
-|  |--testcase/			Testcases
-|  |--build_test.sh		Run it to build test.data from test.c
-|  |--run_test.sh		Run test
-|  |--run_test_fpga.sh	Run test on FPGA
-|--serial/				A third-party library for interfacing with FPGA ports
+|  |--ctrl/             Interface with FPGA
+|  |--sim/              Testbench, add to Vivado project only in simulation
+|  |--src/              Where your code should be
+|  |  |--common/                Provided UART and RAM
+|  |  |--Basys-3-Master.xdc     constraint file
+|  |  |--cpu.v                  Fill it. 
+|  |  |--hci.v                  A bus between UART/RAM and CPU
+|  |  |--ram.v                  RAM
+|  |  |--riscv_top.v            Top design
+|  |--sys/              Help compile
+|  |--testcase/         Testcases
+|  |--autorun_fpga.sh   Autorun Testcase on FPGA
+|  |--build_test.sh     Run it to build test.data from test.c
+|  |--FPGA_test.py      Test correctness on FPGA
+|  |--pd.tcl            Program device the bitstream onto FPGA
+|  |--run_test.sh       Run test
+|  |--run_test_fpga.sh  Run test on FPGA
+|--serial/              A third-party library for interfacing with FPGA ports
 ```
 
 #### Requirement
@@ -49,15 +52,33 @@
 
 ##### RISCV-Toolchain
 
+For prerequisities, go to see https://github.com/riscv/riscv-gnu-toolchain to install necessary packages.
 The configure is: 
 
-```./configure --prefix=/opt/riscv --with-arch=rv32i --with-abi=ilp32```
-
+```
+./configure --prefix=/opt/riscv --with-arch=rv32i --with-abi=ilp32
+sudo make
+```
+**DO NOT** use `sudo make linux` which you may use in PPCA. If you have made it, just rerun `sudo make` without any deletion and everything will be ok.
 (BTW, you may use arch rv32gc for your compiler project, so keep the installation package)
+
+The following are some common problems you may meet when make
+
+###### make failed
+
+Please first check whether you use `sudo` before `make` due to default permission setting of linux.
+
+###### checking for sysdeps preconfigure fragments... aarch64 alpha arm csky hppa i386 m68k microblaze mips nios2 powerpc riscv glibc requires the A extension
+
+Use configuration `./configure --prefix=/opt/riscv --with-arch=rv32ia --with-abi=ilp32`
+
+###### xxx-ld: cannot find -lgcc
+
+Go to see https://github.com/riscv/riscv-gnu-toolchain/issues/522.
 
 ##### Custom
 
-In this project, the size of memory(ram) is 128K, so only address lower than 0x20000 is available. However, reading and writing from 0x30000 and 0x30004 have special meaning, you can see `riscv/src/cpu.v` for more details. (You can just regard the two as normal address)
+In this project, the size of memory(ram) is 128K, so only address lower than 0x20000 is available. However, reading and writing from 0x30000 and 0x30004 have special meaning, you can see `riscv/src/cpu.v` for more details. 
 
 ##### Simulation using iverilog
 
@@ -112,6 +133,26 @@ on WSL: /dev/ttySX
 on Windows: COMX
 ```
 
+Your Vivado may unable to discover your FPGA, this may be caused by the lack of corresponding driver, install it by(use your own version to replace `2018.2`): 
+
+```bash
+cd $PATH_TO_VIVADO/2018.2/data/xicom/cable_drivers/lin64
+sudo cp -i -r install_script /opt
+cd /opt/install_script/install_drivers
+sudo ./install_drivers
+```
+
+Then restart Vivado. 
+
+To run your bitstream on FPGA, you can run: 
+
+```bash
+cd riscv
+python FPGA_test.py
+```
+
+You need to modify the `path_of_bit` in `FPGA_test.py` first. 
+
 ##### Update Note
 
 For some strong students that start project early based on last year's assignment, here are some changes we've made this year:
@@ -129,5 +170,15 @@ For some strong students that start project early based on last year's assignmen
 1. `rdy_in` and `rst_in`
 
    The `rst_in` has higher priority with `rdy_in`, and you CANNOT DO ANYTING when `rdy_in` is zero. `rdy_in` does not affect the result of simulation, but has effect when running on FPGA. 
+
+2. Write twice in simulation
+
+   This is often OK in simulation, because it uses `$write()` in a combinational circuit to simulate a write(you can find it in `hci.v`), and by the property of combinational circuit, this instruction may be executed twice. 
+
+   In FPGA if everything you write is correct this will not happen. 
+
+3. connect with FPGA
+
+   Use the micro USB port on the FPGA, since we use RS232 to transmit data. 
 
 You may meet various problems, especially when start testing on FPGA. Feel free to contact any TA for help.
